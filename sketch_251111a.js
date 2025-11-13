@@ -1,155 +1,145 @@
-let estado = 0;
-let tiempoInicio;
-let tiempoRestante = 30;
-let puntaje = 0;
-let enemigos = [];
-let numEnemigos = 1; // menos enemigos
-let jugador;
-let intervalo;
-
-function setup() {
-  createCanvas(600, 600);
-  jugador = new Jugador(width / 2, height / 2);
-  crearEnemigos();
-}
-
-function draw() {
-  background(255);
-  textAlign(LEFT);
-  textSize(20);
-  fill(0);
-
-  if (estado == 1) {
-    text("Puntaje: " + puntaje, 20, 30);
-    text("Tiempo: " + tiempoRestante, 20, 60);
+class Juego {
+  constructor() {
+    this.estado = 0;           // 0: inicio, 1: jugando, 2: ganó, 3: perdió, 4: créditos
+    this.tiempoRestante = 30;
+    this.puntaje = 0;
+    this.numEnemigos = 1;
+    this.jugador = new Jugador(width / 2, height / 2);
+    this.enemigos = [];
+    this.intervalo = null;
   }
 
-  if (estado == 0) pantallaInicio();
-  else if (estado == 1) pantallaJugando();
-  else if (estado == 2) pantallaGano();
-  else if (estado == 3) pantallaPerdio();
-  else if (estado == 4) pantallaCreditos();
-}
+  iniciar() {
+    this.crearEnemigos();
+    this.iniciarContador();
+  }
 
-function iniciarContador() {
-  clearInterval(intervalo);
-  intervalo = setInterval(() => {
-    if (estado == 1) {
-      tiempoRestante--;
+  crearEnemigos() {
+    this.enemigos = [];
+    for (let i = 0; i < this.numEnemigos; i++) {
+      this.enemigos.push(new Enemigo(random(width), random(height)));
+    }
+  }
 
-      // Gana puntos por sobrevivir
-      puntaje += 2;
+  iniciarContador() {
+    clearInterval(this.intervalo);
+    this.intervalo = setInterval(() => {
+      if (this.estado === 1) {
+        this.tiempoRestante--;
+        this.puntaje += 2; // gana puntos por sobrevivir
 
-      if (tiempoRestante <= 0) {
-        clearInterval(intervalo);
-        // Si tiene puntaje -> gana, si no -> pierde
-        if (puntaje > 0) estado = 2;
-        else estado = 3;
+        if (this.tiempoRestante <= 0) {
+          clearInterval(this.intervalo);
+          this.estado = this.puntaje > 0 ? 2 : 3;
+        }
+      }
+    }, 1000);
+  }
+
+  actualizar() {
+    if (this.estado === 1) {
+      this.jugador.mover(mouseX, mouseY);
+
+      for (let enemigo of this.enemigos) {
+        enemigo.perseguir(this.jugador.x, this.jugador.y, this.enemigos);
+
+        let d = dist(this.jugador.x, this.jugador.y, enemigo.x, enemigo.y);
+        if (d < this.jugador.tam / 2 + enemigo.tam / 2) {
+          this.puntaje -= 5;
+          if (this.puntaje < 0) this.puntaje = 0;
+        }
       }
     }
-  }, 1000);
-}
-
-function crearEnemigos() {
-  enemigos = [];
-  for (let i = 0; i < numEnemigos; i++) {
-    enemigos.push(new Enemigo(random(width), random(height)));
   }
-}
 
-function mousePressed() {
-  if (estado == 0) {
-    estado = 1;
-    tiempoInicio = millis();
-    iniciarContador();
-  } else if (estado == 2 || estado == 3) {
-    estado = 4;
-  } else if (estado == 4) {
-    // Botón reinicio
-    if (
-      mouseX > width / 2 - 80 &&
-      mouseX < width / 2 + 80 &&
-      mouseY > height / 2 + 50 &&
-      mouseY < height / 2 + 100
-    ) {
-      reiniciarJuego();
+  dibujar() {
+    background(255);
+    textAlign(LEFT);
+    textSize(20);
+    fill(0);
+
+    if (this.estado === 1) {
+      text("Puntaje: " + this.puntaje, 20, 30);
+      text("Tiempo: " + this.tiempoRestante, 20, 60);
+    }
+
+    switch (this.estado) {
+      case 0: this.pantallaInicio(); break;
+      case 1: this.pantallaJugando(); break;
+      case 2: this.pantallaGano(); break;
+      case 3: this.pantallaPerdio(); break;
+      case 4: this.pantallaCreditos(); break;
     }
   }
-}
 
-function pantallaInicio() {
-  background(0, 100, 255);
-  textAlign(CENTER);
-  fill(255);
-  textSize(40);
-  text("MEDUSA", width / 2, height / 2 - 40);
-  textSize(20);
-  text("Esquiva a la diosa. Gana puntos al sobrevivir.", width / 2, height / 2);
-  text("Haz click para comenzar.", width / 2, height / 2 + 40);
-}
+  pantallaInicio() {
+    background(0, 100, 255);
+    textAlign(CENTER);
+    fill(255);
+    textSize(40);
+    text("MEDUSA", width / 2, height / 2 - 40);
+    textSize(20);
+    text("Esquiva a la diosa. Gana puntos al sobrevivir.", width / 2, height / 2);
+    text("Haz click para comenzar.", width / 2, height / 2 + 40);
+  }
 
-function pantallaJugando() {
-  jugador.mover(mouseX, mouseY);
-  jugador.mostrar();
-
-  for (let i = 0; i < enemigos.length; i++) {
-    enemigos[i].perseguir(jugador.x, jugador.y, enemigos);
-    enemigos[i].mostrar();
-
-    // Solo reducir puntos si el jugador es tocado
-    let d = dist(jugador.x, jugador.y, enemigos[i].x, enemigos[i].y);
-    if (d < jugador.tam / 2 + enemigos[i].tam / 2) {
-      puntaje -= 5;
-      if (puntaje < 0) puntaje = 0;
+  pantallaJugando() {
+    this.jugador.mostrar();
+    for (let enemigo of this.enemigos) {
+      enemigo.mostrar();
     }
   }
-}
 
-function pantallaGano() {
-  background(0, 255, 100);
-  textAlign(CENTER);
-  fill(0);
-  textSize(40);
-  text("¡Ganaste!", width / 2, height / 2);
-  textSize(20);
-  text("Haz click para ver los créditos.", width / 2, height / 2 + 50);
-}
+  pantallaGano() {
+    background(0, 255, 100);
+    textAlign(CENTER);
+    fill(0);
+    textSize(40);
+    text("¡Ganaste!", width / 2, height / 2);
+    textSize(20);
+    text("Haz click para ver los créditos.", width / 2, height / 2 + 50);
+  }
 
-function pantallaPerdio() {
-  background(255, 100, 100);
-  textAlign(CENTER);
-  fill(0);
-  textSize(40);
-  text("Perdiste :(", width / 2, height / 2);
-  textSize(20);
-  text("Haz click para ver los créditos.", width / 2, height / 2 + 50);
-}
+  pantallaPerdio() {
+    background(255, 100, 100);
+    textAlign(CENTER);
+    fill(0);
+    textSize(40);
+    text("Perdiste :(", width / 2, height / 2);
+    textSize(20);
+    text("Haz click para ver los créditos.", width / 2, height / 2 + 50);
+  }
 
-function pantallaCreditos() {
-  background(200, 255, 255);
-  textAlign(CENTER);
-  fill(0);
-  textSize(30);
-  text("Créditos", width / 2, height / 2 - 120);
-  textSize(20);
-  text("Creadores:", width / 2, height / 2 - 90);
-  text("Diego Maidana", width / 2, height / 2 - 60);
-  text("Mauro Romero", width / 2, height / 2 - 20);
-  text("Gracias por jugar", width / 2, height / 2 - 5);
+  pantallaCreditos() {
+    background(200, 255, 255);
+    textAlign(CENTER);
+    fill(0);
+    textSize(30);
+    text("Créditos", width / 2, height / 2 - 150);
 
-  fill(0, 150, 255);
-  rect(width / 2 - 80, height / 2 + 50, 160, 50, 10);
-  fill(255);
-  textSize(20);
-  text("Reiniciar", width / 2, height / 2 + 80);
-}
+    textSize(22);
+    text("Creadores:", width / 2, height / 2 - 110);
+    text("Diego Maidana", width / 2, height / 2 - 60);
+    text("Mauro Romero", width / 2, height / 2);
+    
+    textSize(20);
+    text("Gracias por jugar", width / 2, height / 2 + 60);
 
-function reiniciarJuego() {
-  puntaje = 0;
-  tiempoRestante = 30;
-  jugador = new Jugador(width / 2, height / 2);
-  crearEnemigos();
-  estado = 0;
+    // Botón de reinicio
+    fill(0, 150, 255);
+    rect(width / 2 - 80, height / 2 + 80, 160, 50, 10);
+    fill(255);
+    textSize(20);
+    text("Reiniciar", width / 2, height / 2 + 110);
+  }
+
+  reiniciar() {
+    this.puntaje = 0;
+    this.tiempoRestante = 30;
+    this.jugador = new Jugador(width / 2, height / 2);
+    this.crearEnemigos();
+    this.estado = 0;
+  }
 }
 
 /* ---------------- CLASES ---------------- */
@@ -176,8 +166,8 @@ class Enemigo {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.tam = 30;
-    this.vel = random(3.5, 5); // velocidad razonable
+    this.tam = 60;          // más grande
+    this.vel = random(7, 9); // más rápido
     this.tipo = int(random(3));
     this.oscilacion = random(TWO_PI);
     this.wanderAngle = random(TWO_PI);
@@ -194,13 +184,13 @@ class Enemigo {
       ang += noise(frameCount * 0.02 + this.x * 0.05) * 0.6 - 0.3;
     }
 
-    // Separación más fuerte
+    // Separación
     let sepX = 0;
     let sepY = 0;
     for (let otro of otros) {
       if (otro !== this) {
         let d = dist(this.x, this.y, otro.x, otro.y);
-        if (d < 80 && d > 0) { // más separación
+        if (d < 80 && d > 0) {
           let diffX = this.x - otro.x;
           let diffY = this.y - otro.y;
           sepX += diffX / d;
@@ -209,12 +199,11 @@ class Enemigo {
       }
     }
 
-    // Wander más marcado
+    // Wander
     this.wanderAngle += random(-0.2, 0.2);
     let wanderX = cos(this.wanderAngle) * 0.5;
     let wanderY = sin(this.wanderAngle) * 0.5;
 
-    // Combinar vectores
     let dirX = cos(ang) + sepX * 0.5 + wanderX;
     let dirY = sin(ang) + sepY * 0.5 + wanderY;
 
@@ -237,3 +226,37 @@ class Enemigo {
     ellipse(this.x, this.y, this.tam);
   }
 }
+
+/* ---------------- SETUP Y DRAW ---------------- */
+
+let juego;
+
+function setup() {
+  createCanvas(600, 600);
+  juego = new Juego();
+}
+
+function draw() {
+  juego.actualizar();
+  juego.dibujar();
+}
+
+function mousePressed() {
+  if (juego.estado === 0) {
+    juego.estado = 1;
+    juego.iniciar();
+  } else if (juego.estado === 2 || juego.estado === 3) {
+    juego.estado = 4;
+  } else if (juego.estado === 4) {
+    // Botón reinicio
+    if (
+      mouseX > width / 2 - 80 &&
+      mouseX < width / 2 + 80 &&
+      mouseY > height / 2 + 80 &&
+      mouseY < height / 2 + 130
+    ) {
+      juego.reiniciar();
+    }
+  }
+}
+
